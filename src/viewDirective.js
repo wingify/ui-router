@@ -134,10 +134,25 @@ function $ViewDirective(   $state,   $compile,   $controller,   $injector,   $ui
 
             currentScope = $scope.$new();
             $compile(currentEl.contents())(currentScope);
+
+            // Reset viewLocals (to undefined). Otherwise on next update when `locals`
+            // is populated, it gives true on deep equality check with `viewLocals`.
+            // This is basically required because of the additional deep-equality check
+            // in the view retain code below [1].
+            viewLocals = locals;
+
             return;
           }
 
-          if (locals === viewLocals) return; // nothing to do
+          // [1] nothing to do if view to be rendered is same as last one.
+          if (locals === viewLocals ||
+            (locals && viewLocals && /* deep-comparing essential elements */
+              angular.equals(locals, viewLocals) &&
+              angular.equals(locals.$$state, viewLocals.$$state) &&
+              angular.equals(locals.$stateParams, viewLocals.$stateParams)) ) return;
+
+          // Preserving current view and scope if current $template is '='.
+          if (locals && locals.$template === '=') return;
 
           cleanupLastView();
 
@@ -165,9 +180,10 @@ function $ViewDirective(   $state,   $compile,   $controller,   $injector,   $ui
           currentScope.$emit('$viewContentLoaded');
           if (onloadExp) currentScope.$eval(onloadExp);
 
-          if (!angular.isDefined(autoscrollExp) || !autoscrollExp || $scope.$eval(autoscrollExp)) {
-            $uiViewScroll(currentEl);
-          }
+          // Causing wierd behavior with view retain patch.
+          // if (!angular.isDefined(autoscrollExp) || !autoscrollExp || $scope.$eval(autoscrollExp)) {
+          //   $uiViewScroll(currentEl);
+          // }
         }
       };
     }
